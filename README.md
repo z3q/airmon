@@ -1,5 +1,5 @@
 # airmon
-Simple air quality monitor with CO<sub>2</sub>, temperature ang humidity sensors. Based on MSP430 + Energia. Pin-compatible to Texas Instruments' Launchpad (v1.5), but I recommend to use your own soldered PCB because of power quality sensitivity of MH-Z19 sensor with step-up converter. The Dallas Semiconductor DS18B20 sensor can be hot-plugged.
+Simple air quality monitor with CO<sub>2</sub>, temperature ang humidity sensors. Based on MSP430 + Energia. Pin-compatible to Texas Instruments' Launchpad (v1.5), but I recommend to use your own soldered PCB because of power quality sensitivity of MH-Z19 sensor with step-up converter. The Dallas Semiconductor DS18B20 sensor is hot-pluggable.
 
 ## Thank you - This is a mixture of others' projects and example codes
 
