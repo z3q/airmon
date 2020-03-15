@@ -1,5 +1,5 @@
 # airmon
-Simple air quality monitor with CO2, temperature ang humidity sensors. Based on MSP430 + Energia
+Simple air quality monitor with CO<sub>2</sub>, temperature ang humidity sensors. Based on MSP430 + Energia
 
 ## Thank you - This is a mixture of others' projects and example codes
 
