@@ -16,7 +16,7 @@ MCU: Texas Intruments' MSP430G2553
 
 Temperature and humidity sensor: AM2320 
 
-CO_2 sensor MH-Z19
+CO<sub>2</sub> sensor MH-Z19
 
 External temperature Sensor: DS18B20
 
