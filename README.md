@@ -6,7 +6,7 @@ Simple air quality monitor with CO2, temperature ang humidity sensors. Based on 
 For DS18B20 driver
 - GFDS18B20(StellarisOW)  Grant Forest 29 Jan 2013. From https://www.43oh.com . Original links doesn't work, so I found this library somewhere in the Internet and attached to the project as is. 
 
-For AM2320 and i2c LCD drivers @Ten04031977 [https://github.com/Ten04031977][E. N. Timofeev]
+For AM2320 and i2c LCD drivers @Ten04031977 [https://github.com/Ten04031977] [E. N. Timofeev]
 - AM2321 Arduino library  https://github.com/Ten04031977/AM2320-master
 - LiquidCrystal_I2C Arduino library https://github.com/Ten04031977/Arduino-LiquidCrystal-I2C-library
 
