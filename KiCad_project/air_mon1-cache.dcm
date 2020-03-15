@@ -1,0 +1,17 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP AM2320
+D AM2320 temperature and humidity sensor
+K temperature humidity sensor
+$ENDCMP
+#
+$CMP Boost
+D boost circuit
+$ENDCMP
+#
+$CMP MH-Z19
+D CO2 sensor
+K CO2 sensor
+$ENDCMP
+#
+#End Doc Library
