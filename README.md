@@ -1,13 +1,13 @@
 # airmon
-Simple air quality monitor with CO<sub>2</sub>, temperature ang humidity sensors. Based on MSP430 + Energia. Pin-compatible to Texas Instruments' Launchpad (v1.5), but I recommend to use your own soldered PCB because of power quality sensitivity of MH-Z19 sensor with step-up converter. The Dallas Semiconductor DS18B20 sensor can be hot-plugged.
+Simple air quality monitor with CO<sub>2</sub>, temperature ang humidity sensors. Based on MSP430 + Energia. Pin-compatible to Texas Instruments' Launchpad (v1.5), but I recommend to use your own soldered PCB because of power quality sensitivity of MH-Z19 sensor with step-up converter. The Dallas Semiconductor DS18B20 sensor is hot-pluggable.
 
 ## Thank you - This is a mixture of others' projects and example codes
 
 For DS18B20 driver
 - GFDS18B20(StellarisOW)  Grant Forest 29 Jan 2013. From https://www.43oh.com . Original links doesn't work, so I found this library somewhere in the Internet and published: https://github.com/z3q/GFDS18B20. 
 
-For AM2320 and i2c LCD drivers [E. N. Timofeev] (https://github.com/Ten04031977) 
-- AM2321 Arduino library  https://github.com/Ten04031977/AM2320-master
+For AM2320 and i2c LCD drivers: [E. N. Timofeev](https://github.com/Ten04031977) 
+- AM2321 Arduino library  https://github.com/Ten04031977/AM2320-master (forked to https://github.com/z3q/AM2320-integer with integer math)
 - LiquidCrystal_I2C Arduino library https://github.com/Ten04031977/Arduino-LiquidCrystal-I2C-library
 
 ## Hardware
