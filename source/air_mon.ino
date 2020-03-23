@@ -1,4 +1,5 @@
 #include <Wire.h>
+#include <AM2320-int.h>
 #include <LiquidCrystal_I2C.h>
 #include <GFDS18B20.h>
 //На версии параметров плат 1.0.4+ Скетч использует 11 562 байт (70%) памяти устройства.
@@ -13,11 +14,19 @@
 //На версии параметров плат 1.0.1 Скетч использует 11 132 байт (67%) памяти устройства.
 //Глобальные переменные используют 280 байт (54%) динамической памяти
 
+//23.03.2020
+//Скетч использует 12 500 байт (76%) памяти устройства. Всего доступно 16 384 байт.
+//Глобальные переменные используют 338 байт (66%) динамической памяти
+
+//24.03.2020
+//Скетч использует 12 292 байт (75%) памяти устройства. Всего доступно 16 384 байт.
+//Глобальные переменные используют 338 байт (66%) динамической памяти
+
 // Код из библиотеки AM2321 Temperature & Humidity Sensor library for Arduino, сделанной Тимофеевым Е.Н.  (AM2320-master)
 //Для сокращения потребления памяти влажность сделана целочисленной, так как всё равно десятые никого не интересуют. Температура тоже целочисленная удесятерённая, потому что write(FLOAT) не выводит после запятой при использовании библтотеки GFDS18B20.
 
 // Пины и адреса
-#define AM2320_address (0x5c)
+//#define AM2320_address (0x5c)
 #define VbatPin 6
 #define FanPin 2
 #define ExternPin 7
@@ -37,75 +46,10 @@
 #define CO2_ALARM_LEVEL 1500
 
 byte co2_flag = 0;              // Показатель концентрации CO2: до 800ppm = 0, от 800 до 1200 = 1, от 1200 = 2. Управляет миганием подсветки Оптимизировать до 2 бит
-volatile byte backlight_counter = 6;     //счётчик циклов принудительной подсветки, при сбросе на 0 подсветка отключается Оптимизировать до 3 бит
-volatile byte battery_level = NO_FAN_LEVEL;       //Заряд аккумулятора, по умолчанию 30%
-volatile byte fan_counter = 0;            //счётчик на вентилятор
-
-
-
-
-class AM2320
-{
-  public:
-    AM2320();
-    int t;
-    byte h;
-    byte Read(void);
-};
-
-unsigned int CRC16(byte *ptr, byte length)
-{
-  unsigned int crc = 0xFFFF;
-  uint8_t s = 0x00;
-
-  while (length--) {
-    crc ^= *ptr++;
-    for (s = 0; s < 8; s++) {
-      if ((crc & 0x01) != 0) {
-        crc >>= 1;
-        crc ^= 0xA001;
-      } else crc >>= 1;
-    }
-  }
-  return crc;
-}
-
-AM2320::AM2320()
-{
-}
-
-byte AM2320::Read()
-{
-  byte buf[8];
-  for (byte s = 0; s < 8; s++) buf[s] = 0x00;
-  // Пробуждаем датчик AM2320
-  Wire.beginTransmission(AM2320_address);
-  Wire.endTransmission();
-  // запрос 4 байт (температуры и влажности)
-  Wire.beginTransmission(AM2320_address);
-  Wire.write(0x03);// запрос
-  Wire.write(0x00); // с 0-го адреса
-  Wire.write(0x04); // 4 байта
-  if (Wire.endTransmission(1) != 0) return 1;
-  delayMicroseconds(1600); //>1.5ms
-  // считываем результаты запроса
-  Wire.requestFrom(AM2320_address, 0x08);
-  for (byte i = 0; i < 0x08; i++) buf[i] = Wire.read();
-
-  // CRC check
-  unsigned int Rcrc = buf[7] << 8;
-  Rcrc += buf[6];
-  if (Rcrc == CRC16(buf, 6)) {
-    unsigned int temperature = ((buf[4] & 0x7F) << 8) + buf[5];
-    t = temperature; // / 10.0;
-    t = ((buf[4] & 0x80) >> 7) == 1 ? t * (-1) : t;
-
-    unsigned int humidity = (buf[2] << 8) + buf[3];
-    h = round(humidity / 10);
-    return 0;
-  }
-  return 1;
-}
+volatile boolean key_pressed = false;    // Key pressed flag
+byte backlight_counter = 6;     //счётчик циклов принудительной подсветки, при сбросе на 0 подсветка отключается Оптимизировать до 3 бит
+byte battery_level = NO_FAN_LEVEL;       //Заряд аккумулятора, по умолчанию 30%
+byte fan_counter = 0;            //счётчик на вентилятор
 
 byte batt_symbol[6][8] =   // Батарейка разной степени заряженности
 {{
@@ -201,24 +145,22 @@ void setup()
     lcd.write(255);
     sleepSeconds(1);
   }
-  lcd.clear();
   lcd.createChar(1, two);
   for (byte i = 2; i <= 7; i++) {
     lcd.createChar(i, batt_symbol[i - 2]);
   }
-  lcd.setCursor(0, 0);
-  lcd.print("CO\1:");
-  lcd.setCursor(0, 1);
-  lcd.print("T:");
-  lcd.setCursor(10, 1);
-  lcd.print("RH:  %");
-
+  lcd_draw_template();
   analogReference(INTERNAL1V5);
 }
 
 
 void loop()
 {
+  if (key_pressed) {
+    key_pressed = false;
+    backlight_counter = 3;
+    fan_counter = 0;
+  };
   if (((co2_flag == 1) || backlight_counter) && battery_level >= NO_BACKLIGHT_LEVEL) lcd.backlight();
   else lcd.noBacklight();
   co2_flag = 0;
@@ -320,6 +262,16 @@ void loop()
   }
 }
 
+void lcd_draw_template() {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("CO\1:");
+  lcd.setCursor(0, 1);
+  lcd.print("T:");
+  lcd.setCursor(10, 1);
+  lcd.print("RH:  %");
+}
+
 void draw_battery(byte percent)           //Вывод символа батарейки
 {
   //lcd.createChar(2, batt_symbol[round(percent/20)]);
@@ -330,8 +282,7 @@ void draw_battery(byte percent)           //Вывод символа батар
 }
 
 void ButtonISR() {                        //Обработчик прерывания кнопки
-  backlight_counter = 3;
-  fan_counter = 0;
+  key_pressed = true;
 }
 
 void tempCMD(void) {     //Send a global temperature convert command
