@@ -8,7 +8,7 @@ For DS18B20 driver
 
 For AM2320 and i2c LCD drivers: [E. N. Timofeev](https://github.com/Ten04031977) 
 - AM2321 Arduino library  https://github.com/Ten04031977/AM2320-master (forked to https://github.com/z3q/AM2320-integer with integer math)
-- LiquidCrystal_I2C Arduino library https://github.com/Ten04031977/Arduino-LiquidCrystal-I2C-library
+- LiquidCrystal_I2C Arduino library https://github.com/fdebrabander/Arduino-LiquidCrystal-I2C-library
 
 ## Hardware
 
