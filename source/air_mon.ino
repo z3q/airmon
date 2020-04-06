@@ -32,6 +32,7 @@
 #define ExternPin 7
 #define ButtonPin 5
 #define OWPIN 8
+#define CO2EnPin 11
 
 // Пороговые уровни
 #define FAN_SKIP 5             //Сколько циклов основной программы пропустить между запусками вентилятора. Макс 255
@@ -46,7 +47,7 @@
 #define CO2_ALARM_LEVEL 1500
 
 byte co2_flag = 0;              // Показатель концентрации CO2: до 800ppm = 0, от 800 до 1200 = 1, от 1200 = 2. Управляет миганием подсветки Оптимизировать до 2 бит
-volatile boolean key_pressed = false;    // Key pressed flag
+volatile boolean key_pressed = false;    // "Key pressed" flag. "Volatile" modifier makes it changeable in interrupt service routines.
 byte backlight_counter = 6;     //счётчик циклов принудительной подсветки, при сбросе на 0 подсветка отключается Оптимизировать до 3 бит
 byte battery_level = NO_FAN_LEVEL;       //Заряд аккумулятора, по умолчанию 30%
 byte fan_counter = 0;            //счётчик на вентилятор
@@ -135,6 +136,15 @@ void setup()
   digitalWrite(FanPin, LOW);
   pinMode(ExternPin, OUTPUT);
   digitalWrite(ExternPin, LOW);
+
+  battery_level = constrain(map(analogRead(VbatPin), ADC_BAT0, ADC_BAT100, 0, 100), 0, 100);
+  pinMode(CO2EnPin, OUTPUT);
+  if (battery_level < SLEEP5MIN_LEVEL) {
+    digitalWrite(CO2EnPin, LOW);
+  } else {
+    digitalWrite(CO2EnPin, HIGH);
+  }
+
   Serial.begin(9600);
   Wire.setModule(0);
   Wire.begin();
@@ -161,6 +171,7 @@ void loop()
     backlight_counter = 3;
     fan_counter = 0;
   };
+  battery_level = (battery_level * 3 + constrain(map(analogRead(VbatPin), ADC_BAT0, ADC_BAT100, 0, 100), 0, 100)) / 4;
   if (((co2_flag == 1) || backlight_counter) && battery_level >= NO_BACKLIGHT_LEVEL) lcd.backlight();
   else lcd.noBacklight();
   co2_flag = 0;
@@ -177,39 +188,43 @@ void loop()
   }
 
   //Углекислый газ
-
-  byte cmd[9] = {0xFF, 0x01, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x79};
-  Serial.write(cmd, 9);
-  char response[9];
-  Serial.readBytes(response, 9);
-
-  // CRC check
-  byte i;
-  byte crc = 0;
-  for (i = 1; i < 8; i++) crc += response[i];
-  crc = 255 - crc;
-  crc++;
-
-  // End of CRC check
-
-  //вывод значения CO2
   lcd.setCursor(4, 0);
-  if ( !((byte)response[0] == 0xFF && (byte)response[1] == 0x86 && (byte)response[8] == crc)) {
-    lcd.print("offline");
+  if (battery_level > SLEEP5MIN_LEVEL) {
+    digitalWrite(CO2EnPin, HIGH);
+    byte cmd[9] = {0xFF, 0x01, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x79};
+    Serial.write(cmd, 9);
+    char response[9];
+    Serial.readBytes(response, 9);
+
+    // CRC check
+    byte i;
+    byte crc = 0;
+    for (i = 1; i < 8; i++) crc += response[i];
+    crc = 255 - crc;
+    crc++;
+    // End of CRC check
+
+    //вывод значения CO2
+    if ( !((byte)response[0] == 0xFF && (byte)response[1] == 0x86 && (byte)response[8] == crc)) {
+      lcd.print("offline");
+    } else {
+      int ppm = (256 * (byte)response[2]) + (byte)response[3];
+
+      if (ppm < 300 || ppm > 5000) ppm = 0;
+      if (ppm > CO2_WARN_LEVEL && ppm <= CO2_ALARM_LEVEL) co2_flag = 1;
+      if (ppm > CO2_ALARM_LEVEL && ppm <= 5000) co2_flag = 2;
+
+      lcd.print("       ");
+      lcd.setCursor(4, 0);
+      lcd.print(ppm);
+      lcd.print("ppm");
+    }
   } else {
-    int ppm = (256 * (byte)response[2]) + (byte)response[3];
-
-    if (ppm < 300 || ppm > 5000) ppm = 0;
-    if (ppm > CO2_WARN_LEVEL && ppm <= CO2_ALARM_LEVEL) co2_flag = 1;
-    if (ppm > CO2_ALARM_LEVEL && ppm <= 5000) co2_flag = 2;
-
-    lcd.print("       ");
-    lcd.setCursor(4, 0);
-    lcd.print(ppm);
-    lcd.print("ppm");
-
+    digitalWrite(CO2EnPin, LOW);
+    lcd.print("LOW BAT");
   }
-  battery_level = (battery_level * 3 + constrain(map(analogRead(VbatPin), ADC_BAT0, ADC_BAT100, 0, 100), 0, 100)) / 4;
+
+
   /*lcd.setCursor(12, 0);
     lcd.print("   ");
     lcd.setCursor(12, 0);
@@ -233,12 +248,6 @@ void loop()
   if (backlight_counter > 0) {
     backlight_counter--;
   }
-
-  /*
-    for (i = 0; i <= 100; i++) {    // Гоняем индикатор батареи, просто проверка как оно выглядит
-    draw_battery(i);
-    sleep(10);
-    }*/
 
   if (battery_level < SLEEP5MIN_LEVEL) sleepSeconds(300);      //10% Когда аккумулятор разряжен, просыпаться раз в 5 минут
   else {
