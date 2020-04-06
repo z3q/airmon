@@ -9,4 +9,9 @@ $CMP Boost
 D boost circuit
 $ENDCMP
 #
+$CMP MH-Z19
+D CO2 sensor
+K CO2 sensor
+$ENDCMP
+#
 #End Doc Library
