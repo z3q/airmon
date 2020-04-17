@@ -26,6 +26,6 @@ LCD 16x2 with i2c module
 
 ## How to compile and upload to the board
 
-just download the Energia IDE (similar to Arduino), and copy the libs(DS18B20) to proper path.
+just download the Energia IDE (similar to Arduino), and copy the libs ([DS18B20](https://github.com/z3q/GFDS18B20), [AM2320](https://github.com/z3q/AM2320-integer)) to proper path.
 
 Compile and upload the code to MCU with MSP430G2 Launchpad.
