@@ -40,7 +40,7 @@
 #define ADC_BAT0 820            //Показание АЦП при разряженной батарее (3,2В + 0,1В падение на защите, итого реально 3,3В - 780, 3,5В - 828)
 
 #define NO_BACKLIGHT_LEVEL 15   //Уровень заряда для отключения подсветки
-#define SLEEP5MIN_LEVEL 10        //Уровень заряда для ухода в сон на 5 минут
+#define SLEEP_LEVEL 10        //Уровень заряда для ухода в сон на 5 минут
 #define NO_FAN_LEVEL 30           //Уровень заряда для отключения вентилятора
 
 #define CO2_WARN_LEVEL 800
@@ -137,9 +137,10 @@ void setup()
   pinMode(ExternPin, OUTPUT);
   digitalWrite(ExternPin, LOW);
 
+  analogReference(INTERNAL1V5);
   battery_level = constrain(map(analogRead(VbatPin), ADC_BAT0, ADC_BAT100, 0, 100), 0, 100);
   pinMode(CO2EnPin, OUTPUT);
-  if (battery_level < SLEEP5MIN_LEVEL) {
+  if (battery_level < SLEEP_LEVEL) {
     digitalWrite(CO2EnPin, LOW);
   } else {
     digitalWrite(CO2EnPin, HIGH);
@@ -160,7 +161,7 @@ void setup()
     lcd.createChar(i, batt_symbol[i - 2]);
   }
   lcd_draw_template();
-  analogReference(INTERNAL1V5);
+  
 }
 
 
@@ -189,7 +190,7 @@ void loop()
 
   //Углекислый газ
   lcd.setCursor(4, 0);
-  if (battery_level > SLEEP5MIN_LEVEL) {
+  if (battery_level > SLEEP_LEVEL) {
     digitalWrite(CO2EnPin, HIGH);
     byte cmd[9] = {0xFF, 0x01, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x79};
     Serial.write(cmd, 9);
@@ -249,7 +250,9 @@ void loop()
     backlight_counter--;
   }
 
-  if (battery_level < SLEEP5MIN_LEVEL) sleepSeconds(300);      //10% Когда аккумулятор разряжен, просыпаться раз в 5 минут
+  if (battery_level < SLEEP_LEVEL) {   //10% Когда аккумулятор разряжен, просыпаться раз в 5 минут
+    sleepSeconds(300);
+  }
   else {
     if (battery_level > NO_FAN_LEVEL) {                     //30% Когда не жалко энергии, покрутить вентилятором раз в FAN_SKIP+1 циклов
       if (!fan_counter) {
@@ -270,6 +273,8 @@ void loop()
     }
   }
 }
+
+////////////Functions
 
 void lcd_draw_template() {
   lcd.clear();
