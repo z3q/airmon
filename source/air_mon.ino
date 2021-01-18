@@ -22,6 +22,14 @@
 //Скетч использует 12 292 байт (75%) памяти устройства. Всего доступно 16 384 байт.
 //Глобальные переменные используют 338 байт (66%) динамической памяти
 
+//16.01.2021
+//Скетч использует 13 090 байт (79%) памяти устройства. Всего доступно 16 384 байт.
+//Глобальные переменные используют 342 байт (66%) динамической памяти
+
+//18.01.2021
+//Скетч использует 13 180 байт (80%) памяти устройства. Всего доступно 16 384 байт.
+//Глобальные переменные используют 344 байт (67%) динамической памяти
+
 // Код из библиотеки AM2321 Temperature & Humidity Sensor library for Arduino, сделанной Тимофеевым Е.Н.  (AM2320-master)
 //Для сокращения потребления памяти влажность сделана целочисленной, так как всё равно десятые никого не интересуют. Температура тоже целочисленная удесятерённая, потому что write(FLOAT) не выводит после запятой при использовании библтотеки GFDS18B20.
 
@@ -33,28 +41,30 @@
 #define ButtonPin 5
 #define OWPIN 8
 #define CO2EnPin 11
+#define ADC_CONST 41            //цена деления АЦП (1/1024) * 10000
 
 // Пороговые уровни
 #define FAN_SKIP 7             //Сколько циклов основной программы пропустить от запуска до остановки вентилятора. Макс 255 По умолчанию 7 (4 секунды)
 #define ADC_BAT100 990         //Показание АЦП при 100% заряда аккумулятора (4,2В-1010, 4,05В-990)
-#define ADC_BAT0 780            //Показание АЦП при разряженной батарее (3,2В + 0,1В падение на защите, итого реально 3,3В - 780, 3,5В - 828)
+#define ADC_BAT0 810            //Показание АЦП при разряженной батарее (3,2В + 0,1В падение на защите, итого реально 3,3В - 780, 3,5В - 828)
 
 #define NO_BACKLIGHT_LEVEL 15   //Уровень заряда для отключения подсветки
-#define SLEEP_LEVEL 10        //Уровень заряда для ухода в сон на 5 минут
-#define NO_FAN_LEVEL 30           //Уровень заряда для отключения вентилятора
+#define SLEEP_LEVEL 5        //Уровень заряда для ухода в сон на 5 минут
+#define NO_FAN_LEVEL 20           //Уровень заряда для отключения вентилятора и более продолжительного сна
 
 #define CO2_WARN_LEVEL 800
 #define CO2_ALARM_LEVEL 1500
 
 byte co2_flag = 0;              // Показатель концентрации CO2: до 800ppm = 0, от 800 до 1200 = 1, от 1200 = 2. Управляет миганием подсветки Оптимизировать до 2 бит
 volatile boolean key_pressed = false;    // "Key pressed" flag. "Volatile" modifier makes it changeable in interrupt service routines.
-byte backlight_counter = 10;     //счётчик циклов принудительной подсветки, при сбросе на 0 подсветка отключается Оптимизировать до 3 бит
+byte backlight_counter = 10;     //счётчик циклов принудительной подсветки, при сбросе на 0 подсветка отключается
 byte battery_level = NO_FAN_LEVEL;       //Заряд аккумулятора, по умолчанию 30%
 byte fan_counter = 0;            //счётчик на вентилятор
 byte cycle_counter = 1;            //счётчик циклов
 byte period = 2;                  //периодичность пробуждения
 byte fan_period = 10;             //период включения вентилятора
 byte extern_period = 255;        //период включения выхода типа открытый сток
+unsigned int Vbat = 0;            //напряжение батареи*10000
 
 byte batt_symbol[6][8] =   // Батарейка разной степени заряженности
 {{
@@ -140,13 +150,15 @@ void setup()
   digitalWrite(FanPin, LOW);
   pinMode(ExternPin, OUTPUT);
   digitalWrite(ExternPin, LOW);
+  pinMode(CO2EnPin, OUTPUT);
+  digitalWrite(CO2EnPin, LOW);
 
   analogReference(INTERNAL1V5);
-  battery_level = constrain(map(analogRead(VbatPin), ADC_BAT0, ADC_BAT100, 0, 100), 0, 100);
-  pinMode(CO2EnPin, OUTPUT);
-  if (battery_level < SLEEP_LEVEL) {
-    digitalWrite(CO2EnPin, LOW);
-  } else {
+  unsigned int ADCbat = analogRead(VbatPin);
+  Vbat = ADCbat * ADC_CONST;
+  battery_level = constrain(map(ADCbat, ADC_BAT0, ADC_BAT100, 0, 100), 0, 100);
+
+  if (battery_level > SLEEP_LEVEL) {
     digitalWrite(CO2EnPin, HIGH);
   }
 
@@ -156,10 +168,12 @@ void setup()
   lcd.init();
   lcd.noBacklight();
   lcd.home();
+  lcd.print("Vbat="); printDec(Vbat / 1000);
+  lcd.setCursor(0, 1);
   for (byte i = 0; i < 16; i++) {
     lcd.write(255);
     sleepSeconds(1);
-    //sleep (500);                    //fast boot
+    //sleep (300);                    //fast boot for testing
   }
   lcd.createChar(1, two);
   for (byte i = 2; i <= 7; i++) {
@@ -172,14 +186,16 @@ void setup()
 
 void loop()
 {
-  //  lcd.home();
-  //  lcd.print(cycle_counter);
+  //lcd.home();
+  //lcd.print(cycle_counter);
 
-  if (key_pressed) {
-    lcd.backlight();
+  if (key_pressed) {                                                  //Обработка нажатия кнопки
+    if (battery_level) lcd.backlight();
     lcd.clear();
     lcd.home();
-    lcd.print("Bat level "); lcd.print(battery_level); lcd.setCursor(0, 1); lcd.print("ADC="); lcd.print(analogRead(VbatPin));
+    unsigned int ADCbat = analogRead(VbatPin);
+    Vbat = ADCbat * ADC_CONST;
+    lcd.print("Bat level "); lcd.print(battery_level); lcd.setCursor(0, 1); lcd.print("ADC="); lcd.print(ADCbat); lcd.print(" V="); printDec(Vbat / 1000);
     while (!digitalRead(ButtonPin)) {                                                   //Detect button hold
       sleep(100);
     }
@@ -190,29 +206,30 @@ void loop()
     lcd_draw_template();
   };
 
-  if (backlight_counter) lcd.backlight();
-  else lcd.noBacklight();
-  if (backlight_counter > 0) {
+  if (backlight_counter) {
+    if (battery_level) lcd.backlight();
     backlight_counter--;
+  }
+  else {
+    lcd.noBacklight();
   }
 
   if (!(cycle_counter % period)) {                                                              //если остаток от деления = 0, то программа выполняется, иначе спим секунду
-
-    int Vbat = analogRead(VbatPin);
-    battery_level = (battery_level * 3 + constrain(map(Vbat, ADC_BAT0, ADC_BAT100, 0, 100), 0, 100)) / 4;
+    unsigned int ADCbat = analogRead(VbatPin);
+    battery_level = (battery_level * 3 + constrain(map(ADCbat, ADC_BAT0, ADC_BAT100, 0, 100), 0, 100)) / 4;
     if (battery_level < SLEEP_LEVEL) {   //10% Когда аккумулятор разряжен, просыпаться раз в ~3 минуты
       period = 254;
       fan_period = 255;                  //и полностью отключить вентилятор
     }
     else {
 
-      if (battery_level < NO_FAN_LEVEL) {   //30% Когда не жалко энергии, покрутить вентилятором раз в 30 секунд. Если жалко, крутим раз в 3 минуты
+      if (battery_level < NO_FAN_LEVEL) {   //30% Когда не жалко энергии, покрутить вентилятором раз в 38 секунд. Если жалко, крутим раз в 3 минуты и просыпаемся раз в 30 секунд
         period = 42;
         fan_period = 254;
       }
       else {
         period = 6;
-        fan_period = 42;
+        fan_period = 50;
       }
     }
     /*if (((co2_flag == 1) || backlight_counter) && battery_level >= NO_BACKLIGHT_LEVEL) {
@@ -240,9 +257,10 @@ void loop()
     //Температура, влажность
     if (th.Read() == 0) {
       lcd.setCursor(2, 1);
-      lcd.print(th.t / 10);
-      lcd.print(".");
-      lcd.print(abs(th.t % 10));
+      //lcd.print(th.t / 10);
+      //lcd.print(".");
+      //lcd.print(abs(th.t % 10));
+      printDec(th.t);
       lcd.write(223); lcd.print("C ");
       lcd.setCursor(14, 1);
       lcd.print(" ");
@@ -288,13 +306,11 @@ void loop()
     }
 
 
-
+    //Теспература внешнего датчика DS18B20
     lcd.setCursor(11, 0);
     if (!ds.reset()) {
       int32_t DStemp = ReadTemp();
-      lcd.print(DStemp / 10);
-      lcd.print(".");
-      lcd.print(abs(DStemp % 10));
+      printDec(DStemp);
       tempCMD();
     } else {
       lcd.print("    ");
@@ -329,25 +345,33 @@ void loop()
 
   }                 /////////Конец рабочего пробуждения
 
-  if (!(cycle_counter % extern_period)) {
+  if ((!(cycle_counter % extern_period)) && battery_level) {
     digitalWrite(ExternPin, HIGH);
   }
   if (!(cycle_counter % fan_period)) {
     fan_counter = FAN_SKIP;
   }
-  if (fan_counter) {
+  if (fan_counter && battery_level) {
     fan_counter--;
     digitalWrite(FanPin, HIGH);
   } else {
     digitalWrite(FanPin, LOW);
   }
-  if (cycle_counter++ == 255) cycle_counter = 1;
- 
+  if (cycle_counter++ == 254) cycle_counter = 1;
+
   sleep(500);
   digitalWrite(ExternPin, LOW);
+  if (!battery_level) suspend();                                // Если аккумулятор разряжен до 0, войти в спячку и просыпаться только по кнопке без вентилятора и подсветки
 }
 
 ////////////Functions
+
+void printDec(int32_t ui)
+{
+  lcd.print(ui / 10, DEC);
+  lcd.print(".");
+  lcd.print(abs(ui % 10), DEC);
+}
 
 void lcd_draw_template() {
   lcd.clear();
@@ -368,8 +392,9 @@ void draw_battery(byte percent)           //Вывод символа батар
 
 }
 
-void ButtonISR() {                        //Обработчик прерывания кнопки
+void ButtonISR() {                       //Обработчик прерывания кнопки
   key_pressed = true;
+  wakeup();
 }
 
 void tempCMD(void) {     //Send a global temperature convert command
