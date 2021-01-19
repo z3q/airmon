@@ -33,8 +33,12 @@
 // Код из библиотеки AM2321 Temperature & Humidity Sensor library for Arduino, сделанной Тимофеевым Е.Н.  (AM2320-master)
 //Для сокращения потребления памяти влажность сделана целочисленной, так как всё равно десятые никого не интересуют. Температура тоже целочисленная удесятерённая, потому что write(FLOAT) не выводит после запятой при использовании библтотеки GFDS18B20.
 
+
+//Для ускорения тестирования и отладки программы раскомментировать
+#define TEST
+
+
 // Пины и адреса
-//#define AM2320_address (0x5c)
 #define VbatPin 6
 #define FanPin 2
 #define ExternPin 7
@@ -57,7 +61,7 @@
 
 byte co2_flag = 0;              // Показатель концентрации CO2: до 800ppm = 0, от 800 до 1200 = 1, от 1200 = 2. Управляет миганием подсветки Оптимизировать до 2 бит
 volatile boolean key_pressed = false;    // "Key pressed" flag. "Volatile" modifier makes it changeable in interrupt service routines.
-byte backlight_counter = 10;     //счётчик циклов принудительной подсветки, при сбросе на 0 подсветка отключается
+byte backlight_counter = 15;     //счётчик циклов принудительной подсветки, при сбросе на 0 подсветка отключается
 byte battery_level = NO_FAN_LEVEL;       //Заряд аккумулятора, по умолчанию 30%
 byte fan_counter = 0;            //счётчик на вентилятор
 byte cycle_counter = 1;            //счётчик циклов
@@ -172,8 +176,13 @@ void setup()
   lcd.setCursor(0, 1);
   for (byte i = 0; i < 16; i++) {
     lcd.write(255);
+
+#ifdef TEST
+    sleep (300);                    //fast boot for testing
+#else
     sleepSeconds(1);
-    //sleep (300);                    //fast boot for testing
+#endif
+
   }
   lcd.createChar(1, two);
   for (byte i = 2; i <= 7; i++) {
@@ -186,8 +195,10 @@ void setup()
 
 void loop()
 {
-  //lcd.home();
-  //lcd.print(cycle_counter);
+#ifdef TEST
+  lcd.home();
+  lcd.print(cycle_counter);
+#endif
 
   if (key_pressed) {                                                  //Обработка нажатия кнопки
     if (battery_level) lcd.backlight();
@@ -205,14 +216,6 @@ void loop()
     cycle_counter = 0;
     lcd_draw_template();
   };
-
-  if (backlight_counter) {
-    if (battery_level) lcd.backlight();
-    backlight_counter--;
-  }
-  else {
-    lcd.noBacklight();
-  }
 
   if (!(cycle_counter % period)) {                                                              //если остаток от деления = 0, то программа выполняется, иначе спим секунду
     unsigned int ADCbat = analogRead(VbatPin);
@@ -242,7 +245,7 @@ void loop()
       }*/
     switch (co2_flag) {
       case 1:
-        extern_period = 10;
+        extern_period = 11;
         break;
       case 2:
         extern_period = 2;
@@ -306,7 +309,7 @@ void loop()
     }
 
 
-    //Теспература внешнего датчика DS18B20
+    //Температура внешнего датчика DS18B20
     lcd.setCursor(11, 0);
     if (!ds.reset()) {
       int32_t DStemp = ReadTemp();
@@ -317,34 +320,17 @@ void loop()
     }
 
     draw_battery(battery_level);
-
-    //if (((co2_flag == 2) || backlight_counter) && battery_level >= NO_BACKLIGHT_LEVEL) lcd.backlight();
-
-    /* if (battery_level < SLEEP_LEVEL) {   //10% Когда аккумулятор разряжен, просыпаться раз в 5 минут
-       sleepSeconds(300);
-      }
-      else {
-       if (battery_level > NO_FAN_LEVEL) {                     //30% Когда не жалко энергии, покрутить вентилятором раз в FAN_SKIP+1 циклов
-         if (!fan_counter) {
-           digitalWrite(FanPin, HIGH);
-           sleepSeconds(5);                                    //4
-           digitalWrite(FanPin, LOW);
-           sleepSeconds(2);                                    //3
-           fan_counter = FAN_SKIP;
-         }
-         else {
-           fan_counter--;
-           sleepSeconds(7);
-         }
-       }
-       else {
-         sleepSeconds(15);
-         backlight_counter = 0;
-       }
-      }*/
-
   }                 /////////Конец рабочего пробуждения
-
+  
+  if (backlight_counter) {
+    //if (battery_level) lcd.backlight();
+    lcd.setBacklight(battery_level);
+    backlight_counter--;
+  }
+  else {
+    lcd.noBacklight();
+  }
+ 
   if ((!(cycle_counter % extern_period)) && battery_level) {
     digitalWrite(ExternPin, HIGH);
   }
