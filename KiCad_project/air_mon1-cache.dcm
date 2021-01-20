@@ -9,6 +9,11 @@ $CMP Boost
 D boost circuit
 $ENDCMP
 #
+$CMP Boost_w_Enable
+D DDEN12MA boost module with ENABLE input
+K SMPS boost step-up
+$ENDCMP
+#
 $CMP MH-Z19
 D CO2 sensor
 K CO2 sensor
