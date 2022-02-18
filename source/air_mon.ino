@@ -34,8 +34,8 @@
 //Для сокращения потребления памяти влажность сделана целочисленной, так как всё равно десятые никого не интересуют. Температура тоже целочисленная удесятерённая, потому что write(FLOAT) не выводит после запятой при использовании библтотеки GFDS18B20.
 
 
-//Для ускорения тестирования и отладки программы раскомментировать
-#define TEST
+//Uncomment for testing
+//#define TEST
 
 
 // Пины и адреса
@@ -206,7 +206,12 @@ void loop()
     lcd.home();
     unsigned int ADCbat = analogRead(VbatPin);
     Vbat = ADCbat * ADC_CONST;
-    lcd.print("Bat level "); lcd.print(battery_level); lcd.setCursor(0, 1); lcd.print("ADC="); lcd.print(ADCbat); lcd.print(" V="); printDec(Vbat / 1000);
+    lcd.print("Bat level "); lcd.print(battery_level); lcd.setCursor(0, 1); lcd.print("temp=");
+    
+    //printDec(MSPTemp.update());
+    printDec((((int32_t)analogRead(TEMPSENSOR) - 687) * 4225) / 1024);                  //Наиболее удачная формула
+    //printDec(((int32_t)analogRead(TEMPSENSOR)*27069 - 18169625) *10 >> 16); 
+    lcd.print(" V="); printDec(Vbat / 1000);
     while (!digitalRead(ButtonPin)) {                                                   //Detect button hold
       sleep(100);
     }
@@ -226,23 +231,16 @@ void loop()
     }
     else {
 
-      if (battery_level < NO_FAN_LEVEL) {   //30% Когда не жалко энергии, покрутить вентилятором раз в 38 секунд. Если жалко, крутим раз в 3 минуты и просыпаемся раз в 30 секунд
+      if (battery_level < NO_FAN_LEVEL) {   //20% Когда не жалко энергии, покрутить вентилятором раз в 38 секунд. Если жалко, крутим раз в 3 минуты и просыпаемся раз в 30 секунд
         period = 42;
         fan_period = 254;
       }
       else {
-        period = 6;
+        period = 11;
         fan_period = 50;
       }
     }
-    /*if (((co2_flag == 1) || backlight_counter) && battery_level >= NO_BACKLIGHT_LEVEL) {
-      lcd.backlight();
-      digitalWrite(ExternPin, HIGH);
-      }
-      else {
-      lcd.noBacklight();
-      digitalWrite(ExternPin, LOW);
-      }*/
+
     switch (co2_flag) {
       case 1:
         extern_period = 11;
@@ -260,9 +258,6 @@ void loop()
     //Температура, влажность
     if (th.Read() == 0) {
       lcd.setCursor(2, 1);
-      //lcd.print(th.t / 10);
-      //lcd.print(".");
-      //lcd.print(abs(th.t % 10));
       printDec(th.t);
       lcd.write(223); lcd.print("C ");
       lcd.setCursor(14, 1);
@@ -321,7 +316,7 @@ void loop()
 
     draw_battery(battery_level);
   }                 /////////Конец рабочего пробуждения
-  
+
   if (backlight_counter) {
     //if (battery_level) lcd.backlight();
     lcd.setBacklight(battery_level);
@@ -330,7 +325,7 @@ void loop()
   else {
     lcd.noBacklight();
   }
- 
+
   if ((!(cycle_counter % extern_period)) && battery_level) {
     digitalWrite(ExternPin, HIGH);
   }
